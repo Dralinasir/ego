@@ -1,69 +1,123 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useEffect, useMemo, useState } from 'react';
+
+const HABITS = [
+  { id: 'bottle', icon: '💧', title: 'Carry a reusable bottle', detail: 'Skip single-use plastic today.', points: 10 },
+  { id: 'recycle', icon: '♻️', title: 'Recycle correctly', detail: 'Sort paper, glass and packaging.', points: 15 },
+  { id: 'energy', icon: '💡', title: 'Save electricity', detail: 'Switch off lights and idle devices.', points: 10 },
+  { id: 'walk', icon: '🚲', title: 'Walk or cycle', detail: 'Choose a low-carbon short trip.', points: 20 },
+];
+const PRODUCTS = [
+  { id: 1, name: 'Everyday Reusable Bottle', category: 'Lifestyle', price: 1250, icon: '🥤', color: '#e0ead7', desc: 'A simple swap for everyday hydration.' },
+  { id: 2, name: 'Bamboo Toothbrush Set', category: 'Personal care', price: 650, icon: '🪥', color: '#f2e4cf', desc: 'A plant-based alternative for your routine.' },
+  { id: 3, name: 'Organic Cotton Tote', category: 'Lifestyle', price: 890, icon: '👜', color: '#e8dfd0', desc: 'Carry your essentials without disposable bags.' },
+  { id: 4, name: 'Solar Desk Lantern', category: 'Energy', price: 2850, icon: '🔆', color: '#f3e9bd', desc: 'A sunny little light for your reading nook.' },
+  { id: 5, name: 'Beeswax Food Wraps', category: 'Kitchen', price: 1100, icon: '🍋', color: '#f4dfb9', desc: 'Reusable wraps for covering everyday food.' },
+  { id: 6, name: 'Recycled Paper Notebook', category: 'Stationery', price: 480, icon: '📓', color: '#dbe8dd', desc: 'Capture new ideas on recycled pages.' },
+];
+const CHALLENGES = [
+  { id: 1, title: 'Plastic-Free Day', level: 'Easy', days: '1 day', desc: 'Avoid disposable plastic and bring your own reusables.', points: 40, icon: '🌊' },
+  { id: 2, title: 'Power-Down Hour', level: 'Easy', days: '3 days', desc: 'Spend one hour a day away from unnecessary electricity.', points: 60, icon: '🔌' },
+  { id: 3, title: 'Green Commute', level: 'Medium', days: '5 days', desc: 'Walk, cycle or use public transport for a daily trip.', points: 100, icon: '🚲' },
+];
+const ARTICLES = [
+  { category: 'RECYCLING', title: 'Give everyday materials a second life', time: '4 min read', icon: '♻️', body: 'Start by learning your local recycling rules. Keep recyclables clean and dry, separate materials where required, and reuse an item before recycling it. When in doubt, check your local waste service guidance.' },
+  { category: 'SUSTAINABLE FASHION', title: 'Build a wardrobe that lasts longer', time: '5 min read', icon: '🧵', body: 'Buy less and choose pieces you can wear often. Repair small tears, swap clothes with friends, explore second-hand options and follow care labels to help garments last longer.' },
+  { category: 'ENERGY', title: 'Small changes that save energy at home', time: '3 min read', icon: '☀️', body: 'Turn off lights in empty rooms, unplug idle devices where practical, use daylight, and choose efficient appliances when replacing old ones. Your impact depends on your energy source and local conditions.' },
+  { category: 'LOW-WASTE LIVING', title: 'Make reusables part of your routine', time: '4 min read', icon: '🌿', body: 'Keep a reusable bag near your keys, carry a bottle you enjoy using, and plan ahead for takeaway meals. Focus on convenient swaps you can maintain rather than trying to change everything at once.' },
+];
+const money = n => `PKR ${Number(n).toLocaleString('en-PK')}`;
+
+export default function Page() {
+  const [dark, setDark] = useState(false);
+  const [completed, setCompleted] = useState([]);
+  const [joined, setJoined] = useState([]);
+  const [doneChallenges, setDoneChallenges] = useState([]);
+  const [wish, setWish] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [transport, setTransport] = useState(120);
+  const [electricity, setElectricity] = useState(180);
+  const [flights, setFlights] = useState(0);
+  const [diet, setDiet] = useState('mixed');
+  const [article, setArticle] = useState(null);
+  const [faqOpen, setFaqOpen] = useState(0);
+  const [notice, setNotice] = useState('');
+  const [formSent, setFormSent] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ecoverse-state') || '{}');
+      setDark(saved.dark ?? false); setCompleted(saved.completed || []); setJoined(saved.joined || []);
+      setDoneChallenges(saved.doneChallenges || []); setWish(saved.wish || []); setCart(saved.cart || []);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('ecoverse-state', JSON.stringify({ dark, completed, joined, doneChallenges, wish, cart })); } catch {}
+  }, [dark, completed, joined, doneChallenges, wish, cart]);
+  useEffect(() => { if (!notice) return; const id = setTimeout(() => setNotice(''), 2600); return () => clearTimeout(id); }, [notice]);
+
+  const points = completed.reduce((sum, id) => sum + (HABITS.find(h => h.id === id)?.points || 0), 0) + doneChallenges.reduce((sum, id) => sum + (CHALLENGES.find(c => c.id === id)?.points || 0), 0);
+  const footprint = Math.max(0, transport * 0.21 + electricity * 0.42 + flights * 90 + ({ plant: 90, mixed: 160, meat: 230 }[diet] || 160));
+  const filteredProducts = useMemo(() => PRODUCTS.filter(p => (category === 'All' || p.category === category) && `${p.name} ${p.desc} ${p.category}`.toLowerCase().includes(search.toLowerCase())), [category, search]);
+  const cartCount = cart.reduce((s, item) => s + item.qty, 0);
+  const toggleHabit = id => setCompleted(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleChallenge = id => setJoined(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const finishChallenge = id => { if (!doneChallenges.includes(id)) { setDoneChallenges(prev => [...prev, id]); setJoined(prev => prev.filter(x => x !== id)); setNotice(`Challenge completed! +${CHALLENGES.find(c => c.id === id).points} EcoPoints 🌱`); } };
+  const addToCart = p => { setCart(prev => prev.some(i => i.id === p.id) ? prev.map(i => i.id === p.id ? { ...i, qty: i.qty + 1 } : i) : [...prev, { id: p.id, qty: 1 }]); setNotice(`${p.name} added to demo bag`); };
+
+  const faqs = [
+    ['Is the footprint calculator an official measurement?', 'No. It uses simplified illustrative assumptions to help you explore how daily choices can influence emissions. It is not a verified carbon audit.'],
+    ['Is the Eco Store selling real products?', 'No. All products and prices are fictional examples for this educational demonstration. The demo bag does not process payments or place orders.'],
+    ['Will my habit progress be saved?', 'The page saves your progress in this browser using local storage when available. It is not synced across devices or accounts.'],
+    ['How can I make a meaningful difference?', 'Start with achievable changes you can repeat: reduce waste, save energy, consider lower-carbon travel and make purchases thoughtfully. Local circumstances matter.'],
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className={dark ? 'eco dark' : 'eco'}>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+        *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0}.eco{--forest:#163d32;--forest2:#285744;--sage:#dde8d5;--ivory:#f7f5ec;--orange:#e9a66a;--ink:#20352d;--muted:#718078;--card:#fffef9;--line:#e5e8dd;--shadow:0 14px 40px #173b2c12;background:var(--ivory);color:var(--ink);font-family:'DM Sans',sans-serif;line-height:1.6;min-height:100vh;transition:.25s}.eco.dark{--ivory:#101b17;--ink:#eaf0e7;--muted:#a6b4aa;--card:#192720;--line:#304238;--sage:#253c30;--forest:#d8ead9;--forest2:#a7c9b1;--shadow:0 14px 40px #0003}.eco h1,.eco h2,.eco h3,.eco h4{font-family:Manrope,sans-serif;line-height:1.15;letter-spacing:-.04em;margin:0 0 14px}.eco h1{font-size:clamp(2.7rem,6vw,5.4rem)}.eco h2{font-size:clamp(2rem,4vw,3rem)}.eco p{color:var(--muted);margin:0 0 16px}.eco a{color:inherit;text-decoration:none}.wrap{width:min(1160px,calc(100% - 40px));margin:auto}.section{padding:82px 0}.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:.73rem;font-weight:800;color:var(--forest2);margin-bottom:15px}.section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:30px}.section-head p{max-width:440px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border:1px solid transparent;border-radius:999px;font-weight:700;font-size:.9rem;transition:.2s;cursor:pointer}.btn:hover{transform:translateY(-2px)}.primary{background:#163d32;color:white!important}.secondary{border-color:var(--line);color:var(--ink);background:transparent}.lightbtn{background:#f7f5ec;color:#163d32}.nav{position:sticky;top:0;z-index:20;background:var(--ivory);border-bottom:1px solid var(--line);backdrop-filter:blur(16px)}.navinner{height:76px;display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:flex;align-items:center;gap:10px;font:800 1.25rem Manrope;color:var(--forest)}.brandmark{display:grid;place-items:center;background:var(--forest);color:white;width:37px;height:37px;border-radius:12px}.navlinks{display:flex;gap:18px;align-items:center;font-size:.82rem;font-weight:700;color:var(--muted)}.navlinks a:hover{color:var(--forest)}.navactions{display:flex;gap:8px;align-items:center}.iconbtn{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:50%;width:40px;height:40px;cursor:pointer}.hero{padding:38px 0 20px}.heropanel{min-height:510px;border-radius:30px;overflow:hidden;display:flex;align-items:center;background:linear-gradient(90deg,#0c271de8 0%,#0c271da8 54%,#0c271d20 100%),url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=2000&q=85') center/cover;color:white}.herocontent{padding:clamp(28px,7vw,80px);max-width:800px}.heropanel .eyebrow{color:#dcebd5}.heropanel h1 em{color:#c9dfb9;font-style:normal}.heropanel p{color:#e3e9df;max-width:520px;font-size:1.05rem;margin:22px 0 26px}.herobuttons{display:flex;gap:12px;flex-wrap:wrap}.herometa{margin-top:34px;color:#e3e9df;font-size:.82rem}.grid{display:grid;gap:16px}.statsgrid{grid-template-columns:repeat(3,1fr)}.stat,.card{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}.stat{padding:24px;display:flex;align-items:center;gap:16px}.staticon{width:48px;height:48px;border-radius:15px;background:var(--sage);display:grid;place-items:center;font-size:1.4rem}.stat strong{font:800 1.8rem Manrope;display:block}.stat small{color:var(--muted)}.twocol{grid-template-columns:1fr 1fr}.threecol{grid-template-columns:repeat(3,1fr)}.fourcol{grid-template-columns:repeat(4,1fr)}.card{padding:24px}.field{display:grid;gap:7px;margin:17px 0}.field label{font-size:.86rem;font-weight:700}.field input,.field select,.field textarea,.searchbox{width:100%;border:1px solid var(--line);background:var(--ivory);color:var(--ink);padding:12px 14px;border-radius:12px;outline-offset:2px}.field input[type=range]{padding:0;accent-color:var(--forest)}.result{background:var(--forest);color:white;padding:27px;border-radius:20px}.result p{color:#dce8dc}.result strong{font:800 2.8rem Manrope}.tip{padding:13px 15px;background:var(--sage);border-radius:12px;margin-top:10px;font-size:.88rem}.habit{display:flex;gap:14px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:16px;margin:10px 0;background:var(--card)}.habit .habiticon{font-size:1.5rem}.habit .grow{flex:1}.habit small{color:var(--muted);display:block}.check{width:25px;height:25px;accent-color:var(--forest)}.progress{height:8px;border-radius:20px;background:var(--line);overflow:hidden}.progress span{display:block;height:100%;background:var(--forest2);border-radius:20px;transition:width .3s}.tag{display:inline-block;padding:5px 10px;border-radius:30px;background:var(--sage);color:var(--forest2);font-size:.74rem;font-weight:800}.productvisual{height:145px;border-radius:15px;display:grid;place-items:center;font-size:4rem;margin-bottom:18px}.productprice{font:800 1.15rem Manrope}.producttools{display:flex;gap:8px;align-items:center}.producttools .btn{flex:1}.filterrow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}.filter{border:1px solid var(--line);padding:9px 14px;border-radius:30px;background:transparent;color:var(--ink);cursor:pointer}.filter.active{background:var(--forest);color:white}.challengeicon{font-size:2rem;margin-bottom:14px}.challengefoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:20px;flex-wrap:wrap}.dashboardnum{font:800 2rem Manrope}.chart{height:155px;display:flex;align-items:end;gap:12px;padding-top:20px}.barwrap{height:100%;display:flex;flex:1;flex-direction:column;justify-content:end;align-items:center;gap:8px;font-size:.75rem;color:var(--muted)}.bar{width:min(36px,80%);background:#8aa98c;border-radius:8px 8px 3px 3px;min-height:5px}.articlevisual{height:130px;border-radius:14px;background:var(--sage);display:grid;place-items:center;font-size:3.5rem;margin-bottom:18px}.articlecard{cursor:pointer;transition:transform .2s}.articlecard:hover{transform:translateY(-3px)}.faqitem{border-bottom:1px solid var(--line);padding:18px 0}.faqquestion{display:flex;justify-content:space-between;gap:15px;font-weight:800;cursor:pointer;background:none;color:var(--ink);border:0;text-align:left;width:100%;font-size:1rem}.footer{background:#163d32;color:white;padding:55px 0 25px}.footer p{color:#cfdbd1}.footer a{color:#e2eadd}.footergrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:35px}.footerlinks{display:grid;gap:9px;font-size:.88rem}.toast{position:fixed;bottom:22px;right:22px;z-index:50;background:var(--forest);color:white;border-radius:14px;padding:14px 20px;box-shadow:var(--shadow)}.empty{padding:35px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;grid-column:1/-1}.modalback{position:fixed;inset:0;background:#0009;z-index:60;display:grid;place-items:center;padding:20px}.modal{background:var(--card);color:var(--ink);max-width:580px;width:100%;padding:28px;border-radius:22px;max-height:85vh;overflow:auto}.notice{font-size:.8rem;color:var(--muted)}
+        @media(max-width:900px){.navlinks{display:none}.navlinks.open{display:flex;position:absolute;top:76px;left:0;right:0;background:var(--ivory);padding:20px;flex-direction:column;align-items:flex-start;border-bottom:1px solid var(--line)}.menuToggle{display:inline-block!important}.fourcol{grid-template-columns:repeat(2,1fr)}.threecol{grid-template-columns:repeat(2,1fr)}.footergrid{grid-template-columns:1fr 1fr}.footergrid>div:first-child{grid-column:1/-1}}
+        @media(max-width:620px){.wrap{width:calc(100% - 28px)}.section{padding:58px 0}.section-head{display:block}.statsgrid,.twocol,.threecol,.fourcol{grid-template-columns:1fr}.heropanel{min-height:540px;background-position:60% center}.herocontent{padding:27px}.heropanel h1{font-size:2.7rem}.navinner{height:68px}.navlinks.open{top:68px}.navactions .startbtn{display:none}.stat{padding:18px}.footergrid{grid-template-columns:1fr}.footergrid>div:first-child{grid-column:auto}.card{padding:19px}.productvisual{height:125px}}
+      `}</style>
+
+      <header className="nav"><div className="wrap navinner">
+        <a className="brand" href="#home"><span className="brandmark">🌱</span> EcoVerse</a>
+        <nav className={`navlinks ${mobileOpen ? 'open' : ''}`} aria-label="Main navigation">
+          {[['Home','#home'],['Footprint','#calculator'],['Habits','#habits'],['Eco Store','#store'],['Challenges','#challenges'],['Blog','#blog']].map(([label,href])=><a key={href} href={href} onClick={()=>setMobileOpen(false)}>{label}</a>)}
+        </nav>
+        <div className="navactions"><button className="iconbtn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?'☀️':'☾'}</button><a className="btn primary startbtn" href="#habits">Start your journey ↗</a><button className="iconbtn menuToggle" style={{display:'none'}} onClick={()=>setMobileOpen(!mobileOpen)} aria-label="Toggle navigation">☰</button></div>
+      </div></header>
+
+      <section className="hero wrap" id="home"><div className="heropanel"><div className="herocontent"><div className="eyebrow">A little greener, every day</div><h1>Small Actions.<br/><em>A Greener Tomorrow.</em></h1><p>Discover how everyday choices can create a healthier planet. Build better habits, measure your impact, and grow a more sustainable future.</p><div className="herobuttons"><a className="btn lightbtn" href="#calculator">Calculate my footprint ↗</a><a className="btn" style={{border:'1px solid #ffffff80',color:'white'}} href="#habits">Explore eco habits ↓</a></div><div className="herometa">🌿 Progress over perfection. Every action counts.</div></div></div></section>
+
+      <section className="wrap" style={{padding:'20px 0 30px'}}><div className="grid statsgrid"><div className="stat"><div className="staticon">🌳</div><div><strong>1,284</strong><small>Trees planted · demo data</small></div></div><div className="stat"><div className="staticon">♻️</div><div><strong>3.6 tons</strong><small>Waste reduced · demo data</small></div></div><div className="stat"><div className="staticon">🌎</div><div><strong>842</strong><small>Challenges completed · demo data</small></div></div></div></section>
+
+      <section className="section" id="calculator"><div className="wrap"><div className="section-head"><div><div className="eyebrow">Know your impact</div><h2>Your footprint, made simple.</h2></div><p>A quick educational estimate can help you spot practical opportunities to reduce your impact.</p></div><div className="grid twocol"><div className="card"><h3>Tell us about your lifestyle</h3><p>Adjust these illustrative monthly inputs.</p><div className="field"><label htmlFor="transport">Transport distance per month: {transport} km</label><input id="transport" type="range" min="0" max="1000" step="10" value={transport} onChange={e=>setTransport(+e.target.value)}/></div><div className="field"><label htmlFor="electricity">Household electricity: {electricity} kWh / month</label><input id="electricity" type="range" min="0" max="800" step="10" value={electricity} onChange={e=>setElectricity(+e.target.value)}/></div><div className="field"><label htmlFor="flights">Flights per year</label><select id="flights" value={flights} onChange={e=>setFlights(+e.target.value)}><option value="0">None</option><option value="1">1 flight</option><option value="2">2 flights</option><option value="4">3–4 flights</option><option value="8">5+ flights</option></select></div><div className="field"><label htmlFor="diet">Typical diet</label><select id="diet" value={diet} onChange={e=>setDiet(e.target.value)}><option value="plant">Mostly plant-based</option><option value="mixed">Mixed diet</option><option value="meat">Meat-heavy diet</option></select></div></div><div className="result"><div className="eyebrow" style={{color:'#dcebd5'}}>Your illustrative estimate</div><strong>{(footprint/1000).toFixed(2)} t</strong><p>Estimated CO₂e per month, using simplified demo assumptions. This is not an official measurement.</p><div style={{background:'#ffffff30',height:9,borderRadius:9,overflow:'hidden',margin:'20px 0'}}><div style={{height:'100%',width:`${Math.min(100,footprint/12)}%`,background:'#e9a66a',borderRadius:9}}/></div><h3 style={{color:'white'}}>A few ways to improve</h3>{[transport>150?'Try walking, cycling or public transit for shorter trips.':'Keep choosing lower-carbon ways to travel.',electricity>200?'Switch off idle devices and check appliance efficiency.':'Keep building energy-saving habits.',diet==='meat'?'Try adding a few plant-based meals each week.':'Plan meals thoughtfully and reduce food waste.'].map(t=><div className="tip" key={t}>{t}</div>)}</div></div></div></section>
+
+      <section className="section" id="habits" style={{background:'var(--sage)'}}><div className="wrap"><div className="section-head"><div><div className="eyebrow">Small steps, real momentum</div><h2>Today's greener habits.</h2></div><p>Check off the actions you complete. Your points and progress update as you go.</p></div><div className="grid twocol"><div className="card"><div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}><h3>Daily checklist</h3><span className="tag">{completed.length}/{HABITS.length} complete</span></div><div className="progress"><span style={{width:`${completed.length/HABITS.length*100}%`}}/></div>{HABITS.map(h=><label className="habit" key={h.id}><span className="habiticon">{h.icon}</span><span className="grow"><b>{h.title}</b><small>{h.detail}</small></span><span className="tag">+{h.points}</span><input className="check" type="checkbox" checked={completed.includes(h.id)} onChange={()=>toggleHabit(h.id)} aria-label={`Complete ${h.title}`}/></label>)}</div><div className="card"><div className="eyebrow">Your progress</div><div className="dashboardnum">{points} points</div><p>EcoPoints earned from habits and completed challenges.</p><div className="grid threecol" style={{gap:10,margin:'25px 0'}}><div className="tip"><div style={{fontSize:'1.5rem'}}>🌱</div><b>{completed.length}</b><small style={{display:'block'}}>Habits</small></div><div className="tip"><div style={{fontSize:'1.5rem'}}>🏆</div><b>{doneChallenges.length}</b><small style={{display:'block'}}>Challenges</small></div><div className="tip"><div style={{fontSize:'1.5rem'}}>✨</div><b>{completed.length===4?'Unlocked':'In progress'}</b><small style={{display:'block'}}>Daily badge</small></div></div><h3>Achievement badges</h3><div style={{display:'flex',gap:10,flexWrap:'wrap'}}><span className="tag">🌿 First steps {completed.length>=1?'✓':'·'}</span><span className="tag">♻️ Habit builder {completed.length>=3?'✓':'·'}</span><span className="tag">🌟 Daily hero {completed.length===4?'✓':'·'}</span></div><p className="notice" style={{marginTop:18}}>Your progress is saved in this browser when local storage is available.</p></div></div></div></section>
+
+      <section className="section" id="store"><div className="wrap"><div className="section-head"><div><div className="eyebrow">Thoughtful everyday swaps</div><h2>The little Eco Store.</h2></div><p>Fictional sample products for this educational demo. No real purchases are available.</p></div><div className="filterrow"><input className="searchbox" style={{maxWidth:300}} placeholder="Search products…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search products"/>{['All',...new Set(PRODUCTS.map(p=>p.category))].map(c=><button key={c} className={`filter ${category===c?'active':''}`} onClick={()=>setCategory(c)}>{c}</button>)}<span className="tag" style={{marginLeft:'auto',alignSelf:'center'}}>🛍️ Demo bag: {cartCount}</span></div><div className="grid threecol">{filteredProducts.map(p=><div className="card" key={p.id}><div className="productvisual" style={{background:p.color}}>{p.icon}</div><span className="tag">{p.category}</span><h3 style={{marginTop:12}}>{p.name}</h3><p>{p.desc}</p><div className="producttools"><span className="productprice">{money(p.price)}</span><button className="iconbtn" onClick={()=>setWish(prev=>prev.includes(p.id)?prev.filter(id=>id!==p.id):[...prev,p.id])} aria-label={wish.includes(p.id)?'Remove from wishlist':'Add to wishlist'}>{wish.includes(p.id)?'♥':'♡'}</button><button className="btn primary" onClick={()=>addToCart(p)}>Add +</button></div></div>)}{filteredProducts.length===0&&<div className="empty">No products match that search. Try another term or category.</div>}</div><p className="notice" style={{marginTop:18}}>Sample prices are in PKR. Wishlist and bag are demonstrations only; no checkout or payment is connected.</p></div></section>
+
+      <section className="section" id="challenges" style={{background:'var(--sage)'}}><div className="wrap"><div className="section-head"><div><div className="eyebrow">Make it a movement</div><h2>One week. New possibilities.</h2></div><p>Choose a challenge that fits your routine, then mark it complete to collect EcoPoints.</p></div><div className="grid threecol">{CHALLENGES.map(c=>{const isDone=doneChallenges.includes(c.id),isJoined=joined.includes(c.id);return <div className="card" key={c.id}><div className="challengeicon">{c.icon}</div><div style={{display:'flex',justifyContent:'space-between',gap:8}}><span className="tag">{c.level}</span><span style={{fontSize:'.8rem',color:'var(--muted)'}}>{c.days}</span></div><h3 style={{marginTop:17}}>{c.title}</h3><p>{c.desc}</p><div className="progress"><span style={{width:isDone?'100%':isJoined?'45%':'0%'}}/></div><div className="challengefoot"><b>🌟 {c.points} points</b>{isDone?<span className="tag">Completed ✓</span>:isJoined?<button className="btn primary" onClick={()=>finishChallenge(c.id)}>Complete</button>:<button className="btn secondary" onClick={()=>toggleChallenge(c.id)}>Join challenge</button>}</div></div>})}</div></div></section>
+
+      <section className="section" id="dashboard"><div className="wrap"><div className="section-head"><div><div className="eyebrow">Your personal impact</div><h2>Progress worth growing.</h2></div><p>Your dashboard updates with the habits and challenges you complete in this demo.</p></div><div className="grid fourcol"><div className="card"><span className="tag">HABITS</span><div className="dashboardnum">{completed.length}</div><p>Completed today</p></div><div className="card"><span className="tag">CHALLENGES</span><div className="dashboardnum">{doneChallenges.length}/{CHALLENGES.length}</div><p>Challenges finished</p></div><div className="card"><span className="tag">ECOPOINTS</span><div className="dashboardnum">{points}</div><p>Points earned</p></div><div className="card"><span className="tag">FOOTPRINT</span><div className="dashboardnum">{(footprint/1000).toFixed(2)} t</div><p>Estimated CO₂e/month</p></div></div><div className="grid twocol" style={{marginTop:16}}><div className="card"><h3>This week's activity</h3><p>Illustrative daily activity view based on your current completed habits.</p><div className="chart">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=><div className="barwrap" key={d}><div className="bar" style={{height:`${Math.max(8,Math.min(100,(completed.length*18)+(i%3)*9))}%`}}/><span>{d}</span></div>)}</div><p className="notice">This is a visual demo, not a historical activity record.</p></div><div className="card"><h3>Your next milestone</h3><p>{completed.length<4?'Complete all four daily habits to unlock the Daily Hero badge.':'You completed all daily habits — amazing consistency!'}</p><div className="progress"><span style={{width:`${completed.length/4*100}%`}}/></div><p style={{marginTop:12}}>{completed.length} of 4 habits complete</p><a className="btn primary" href="#habits">Continue your journey ↗</a></div></div></div></section>
+
+      <section className="section" id="blog" style={{background:'var(--sage)'}}><div className="wrap"><div className="section-head"><div><div className="eyebrow">Ideas for a lighter footprint</div><h2>Notes from a greener world.</h2></div><p>Short, practical reads to help make sustainable living feel approachable.</p></div><div className="grid fourcol">{ARTICLES.map((a,i)=><article className="card articlecard" key={a.title} onClick={()=>setArticle(a)} onKeyDown={e=>e.key==='Enter'&&setArticle(a)} role="button" tabIndex={0}><div className="articlevisual">{a.icon}</div><div className="eyebrow">{a.category}</div><h3>{a.title}</h3><p>{a.time}</p><b>Read article ↗</b></article>)}</div></div></section>
+
+      <section className="section" id="about"><div className="wrap"><div className="grid twocol"><div><div className="eyebrow">A community of small actions</div><h2>Progress, not perfection.</h2><p>EcoVerse is an educational concept designed to make environmental choices easier to explore. Start small, learn as you go, and find the changes that work in your life.</p><div className="card" style={{marginTop:22}}><div style={{fontSize:'1.3rem',marginBottom:10}}>“The easiest sustainable habit is the one you can keep doing.”</div><p style={{marginBottom:0}}>— Illustrative EcoVerse community quote</p></div><p className="notice" style={{marginTop:12}}>Testimonials and community figures on this page are illustrative examples, not verified claims.</p></div><div className="card"><div className="eyebrow">Good to know</div><h3>Frequently asked questions</h3>{faqs.map(([q,a],i)=><div className="faqitem" key={q}><button className="faqquestion" onClick={()=>setFaqOpen(faqOpen===i?-1:i)} aria-expanded={faqOpen===i}>{q}<span>{faqOpen===i?'−':'+'}</span></button>{faqOpen===i&&<p style={{margin:'12px 0 0'}}>{a}</p>}</div>)}</div></div></div></section>
+
+      <section className="section" id="contact" style={{paddingTop:10}}><div className="wrap"><div className="section-head"><div><div className="eyebrow">Let's grow something good</div><h2>Send us a little note.</h2></div><p>Questions, ideas or feedback? This demo form validates your input locally.</p></div><form className="card" onSubmit={e=>{e.preventDefault();setFormSent(true);setNotice('Thanks! Your demo message passed validation. No email was sent.')}}><div className="grid twocol"><div className="field"><label htmlFor="name">Name</label><input id="name" required minLength={2} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your name"/></div><div className="field"><label htmlFor="email">Email</label><input id="email" type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="you@example.com"/></div></div><div className="field"><label htmlFor="subject">Subject</label><input id="subject" required value={form.subject} onChange={e=>setForm({...form,subject:e.target.value})} placeholder="What would you like to talk about?"/></div><div className="field"><label htmlFor="message">Message</label><textarea id="message" required minLength={10} rows={4} value={form.message} onChange={e=>setForm({...form,message:e.target.value})} placeholder="Share your idea…"/></div><button className="btn primary" type="submit">Send message ↗</button>{formSent&&<p role="status" style={{marginTop:14}}>Thanks for reaching out! Your form passed validation. No message was sent to a server.</p>}</form></div></section>
+
+      <footer className="footer"><div className="wrap"><div className="footergrid"><div><a className="brand" href="#home" style={{color:'white'}}><span className="brandmark" style={{background:'#dce8d2',color:'#163d32'}}>🌱</span> EcoVerse</a><p style={{maxWidth:370,marginTop:18}}>Small actions can inspire a greener tomorrow. Learn, experiment and build habits that last.</p><p className="notice" style={{color:'#cfdbd1'}}>Educational demo · No real purchases or verified impact claims.</p></div><div><h3>Explore</h3><div className="footerlinks">{[['Footprint calculator','#calculator'],['Habit tracker','#habits'],['Eco Store','#store'],['Challenges','#challenges']].map(([l,h])=><a href={h} key={h}>{l}</a>)}</div></div><div><h3>Discover</h3><div className="footerlinks"><a href="#blog">Eco blog</a><a href="#about">About & FAQ</a><a href="#contact">Contact</a><span>Social links: demo placeholders</span></div></div></div><div style={{borderTop:'1px solid #ffffff30',marginTop:35,paddingTop:20,display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',fontSize:'.8rem',color:'#cfdbd1'}}><span>© {new Date().getFullYear()} EcoVerse · Small Actions, Big Impact</span><a href="#home">Back to top ↑</a></div></div></footer>
+
+      {notice&&<div className="toast" role="status">{notice}</div>}
+      {article&&<div className="modalback" role="presentation" onClick={()=>setArticle(null)}><article className="modal" role="dialog" aria-modal="true" aria-labelledby="article-title" onClick={e=>e.stopPropagation()}><div className="articlevisual">{article.icon}</div><div className="eyebrow">{article.category} · {article.time}</div><h2 id="article-title">{article.title}</h2><p>{article.body}</p><button className="btn primary" onClick={()=>setArticle(null)}>Close article</button></article></div>}
+    </main>
   );
 }
